@@ -1,0 +1,9 @@
+{
+  "name": "binance",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "node-binance-api": "^0.13.1"
+  }
+}
