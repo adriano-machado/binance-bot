@@ -28,17 +28,20 @@ binance.prices().then((data,error) => {
       { symbol: 'ARB', targetRatio: 0.050 },
       { symbol: 'DYDX', targetRatio: 0.050 },
       { symbol: 'GNS', targetRatio: 0.025 },
-          { symbol: 'LDO', targetRatio: 0.025 },
+      { symbol: 'LDO', targetRatio: 0.025 },
+          // { symbol: 'USDT', targetRatio: 0.01 },
+
         
         ];
         const totalTargetRatio = assets.reduce((sum, asset) => sum + asset.targetRatio, 0);
-        console.log({totalTargetRatio})
          binance.balance((error, balances) => {
             console.log("eu")
           if (error) {
             console.error(error);
             return;
           }
+          console.log({totalTargetRatio, inDolar: balances["USDT"].available})
+
           const totalValue = Object.keys(balances).filter(key => assets.find(asset => asset.symbol === key))
             .reduce((sum, balance) => {
                 return sum + parseFloat(balances[balance].available) * (balances[balance].asset === 'USDT' ? 1 : parseFloat(data[balance+"USDT"]))
@@ -47,43 +50,50 @@ binance.prices().then((data,error) => {
         
             console.log(totalValue)
           const targetValues = assets.map(({targetRatio,symbol}) => {
-            const targetValue = Math.round(totalValue * targetRatio) 
-            const valueInDollar = Math.round(parseFloat(balances[symbol].available) * (balances[symbol].asset === 'USDT' ? 1 : parseFloat(data[symbol+"USDT"])))
+            const targetValue = Number( (totalValue * targetRatio).toFixed(2))
+            const valueInDollar = Number((parseFloat(balances[symbol].available) * (balances[symbol].asset === 'USDT' ? 1 : parseFloat(data[symbol+"USDT"]))).toFixed(2))
+            const currentValue = Number((balances[symbol].available))
             const currentRatio = valueInDollar / totalValue  
-            const diffInDollars = Math.round(valueInDollar - targetValue)
-            return {
+            const diffInDollar = Math.round(valueInDollar - targetValue)
+            const princeInDollar= Number((valueInDollar/currentValue).toFixed(2))
+            const needToSell = Number((diffInDollar / princeInDollar).toFixed(2))
+            const object = {
               symbol,
-              targetValueInDollars: targetValue,
-              currentValueInDollars: valueInDollar,
-              targetRatio: targetRatio * 100 ,
-              currentRatio: currentRatio * 100,
-              diffInDollars,
-              ratioDiff: Math.round((targetRatio - currentRatio)* 100 )  + "%"
+              princeInDollar,
+
+              targetValue$: targetValue,
+              currentValue$: valueInDollar,
+              variation: ((currentRatio - targetRatio) / targetRatio * 100).toFixed(2) + "%",
+              diffInDollar:diffInDollar + "$",
+              targetRatio: targetRatio * 100 + "%" ,
+              currentRatio: Number((currentRatio * 100).toFixed(2))  + "%",
+              currentValue,
+              needToSell,
+              // ratioDiff: Math.round((targetRatio - currentRatio)* 100 )  + "%"
   
             }
+            // console.log({object})
+
+            if ((currentRatio - targetRatio) / targetRatio > 0.3) {
+              // Sell the asset
+              // console.log({object})
+              console.log("SELLING")
+              // binance.marketSell(symbol + 'USDT', needToSell, { type: 'MARKET' }, (error, response) => {
+              //     if (error) {
+              //         console.error(error.body);
+              //     }
+              //     console.log(response);
+              // });
+          } else if((currentRatio - targetRatio) / targetRatio < -0.4) {
+            console.log({object})
+            console.log("BUYING")     
+          
+          }
+          return object
+
           });
-          console.log({targetValues})
+          console.table(targetValues)
 
-          // diffs.forEach(({ symbol, diff }) => {
-          //   try {
-          //       if (diff > 0) {
-          //           binance.marketBuy(symbol + 'BTC', diff / parseFloat(balances['BTC'].price)).then((a,b) => {
-          //               if (b) {
-          //                   console.log(b)
-          //               }
-          //           })
-          //         } else if (diff < 0) {
-          //           binance.marketSell(symbol + 'BTC', -diff / parseFloat(balances[symbol].available)).then((a,b) => {
-          //               if (b) {
-          //                   console.log(b)
-          //               }
-          //           })
-          //         }
-          //   } catch(err) {
-          //       console.log(err)
-          //   }
 
-          //   console.log("done")
-          // });
         });
 }).catch(err => console.log(err));
