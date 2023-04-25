@@ -1,6 +1,6 @@
 const Binance = require('node-binance-api');
 const binance = new Binance().options({
-
+ 
   family: 0
 });
 binance.prices().then((data,error) => {
@@ -35,7 +35,6 @@ binance.prices().then((data,error) => {
         ];
         const totalTargetRatio = assets.reduce((sum, asset) => sum + asset.targetRatio, 0);
          binance.balance((error, balances) => {
-            console.log("eu")
           if (error) {
             console.error(error);
             return;
@@ -49,50 +48,62 @@ binance.prices().then((data,error) => {
         
         
             console.log(totalValue)
-          const targetValues = assets.map(({targetRatio,symbol}) => {
-            const targetValue = Number( (totalValue * targetRatio).toFixed(2))
+          const targetAmounts = assets.map(({targetRatio,symbol}) => {
+            const targetAmount = Number( (totalValue * targetRatio).toFixed(2))
             const valueInDollar = Number((parseFloat(balances[symbol].available) * (balances[symbol].asset === 'USDT' ? 1 : parseFloat(data[symbol+"USDT"]))).toFixed(2))
-            const currentValue = Number((balances[symbol].available))
+            const currentAmount = Number((balances[symbol].available))
             const currentRatio = valueInDollar / totalValue  
-            const diffInDollar = Math.round(valueInDollar - targetValue)
-            const princeInDollar= Number((valueInDollar/currentValue).toFixed(2))
-            const needToSell = Number((diffInDollar / princeInDollar).toFixed(2))
+            const diffInDollar = Math.round(valueInDollar - targetAmount)
+            const princeInDollar= Number((valueInDollar/currentAmount).toFixed(2))
+            const needToSell = Number((diffInDollar / princeInDollar).toFixed(1))
+            const variation = Number(((currentRatio - targetRatio) / targetRatio * 100).toFixed(2))
+              const shouldSell = (currentRatio - targetRatio) / targetRatio > 0.40
+              const shouldBuy = (currentRatio - targetRatio) / targetRatio < -0.41
+            
             const object = {
               symbol,
               princeInDollar,
 
-              targetValue$: targetValue,
-              currentValue$: valueInDollar,
-              variation: ((currentRatio - targetRatio) / targetRatio * 100).toFixed(2) + "%",
-              diffInDollar:diffInDollar + "$",
+              targetAmount$: targetAmount,
+              currentAmount$: valueInDollar,
+              variation,
+              // diffInDollar:diffInDollar ,
               targetRatio: targetRatio * 100 + "%" ,
               currentRatio: Number((currentRatio * 100).toFixed(2))  + "%",
-              currentValue,
+              currentAmount,
               needToSell,
+              action: shouldSell ? "SELL" : shouldBuy ? "BUY" : "HOLD",
               // ratioDiff: Math.round((targetRatio - currentRatio)* 100 )  + "%"
   
             }
             // console.log({object})
 
-            if ((currentRatio - targetRatio) / targetRatio > 0.3) {
+            if (shouldSell) {
               // Sell the asset
               // console.log({object})
-              console.log("SELLING")
-              // binance.marketSell(symbol + 'USDT', needToSell, { type: 'MARKET' }, (error, response) => {
-              //     if (error) {
-              //         console.error(error.body);
-              //     }
-              //     console.log(response);
-              // });
-          } else if((currentRatio - targetRatio) / targetRatio < -0.4) {
-            console.log({object})
-            console.log("BUYING")     
+              // console.log("SELLING")
+              binance.marketSell(symbol + 'USDT', needToSell, { type: 'MARKET' }, (error, response) => {
+                  if (error) {
+                      console.error(error.body,symbol);
+                  }
+                  console.log(response,symbol,needToSell);
+              });
+          } else if(shouldBuy) {
+            console.log({object},)
+              binance.marketBuy(symbol + 'USDT',-1 * needToSell, { type: 'MARKET' }, (error, response) => {
+                if (error) {
+                  
+                    console.error(error.body,symbol, Number((-1.5 * needToSell).toFixed(2)));
+                }
+                console.log(response);
+            });
+            // console.log("BUYING")     
           
           }
           return object
 
-          });
-          console.table(targetValues)
+          }).sort((a,b) => a.variation - b.variation);
+          console.table(targetAmounts.map(f=> ({...f,variation: f.variation + "%"})))
 
 
         });
